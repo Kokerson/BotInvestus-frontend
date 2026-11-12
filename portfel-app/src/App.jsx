@@ -1,17 +1,5 @@
 import { useState, useEffect } from "react";
 import { supabase } from "./supabaseClient";
-import { PieChart, Pie, Cell, Tooltip, Legend } from "recharts";
-
-const COLORS = [
-  "#0088FE",
-  "#00C49F",
-  "#FFBB28",
-  "#FF8042",
-  "#8884d8",
-  "#ffc658",
-  "#ef5350",
-  "#8d6e63",
-];
 
 function App() {
   const [portfolio, setPortfolio] = useState([]);
@@ -79,22 +67,6 @@ function App() {
     else fetchPortfolio();
   }
 
-  const chartData = (portfolio || [])
-    .map((item) => {
-      const itemCurrency = item.currency || "PLN";
-      const rate = itemCurrency === "USD" ? usdToPln : 1;
-
-      const qty = parseFloat(item.quantity) || 0;
-      const price = parseFloat(item.buy_price) || 0;
-      const investedPln = qty * price * rate;
-
-      return {
-        name: item.ticker || "Nieznany",
-        value: parseFloat(investedPln.toFixed(2)),
-      };
-    })
-    .filter((item) => item.value > 0);
-
   return (
     <div
       style={{
@@ -155,40 +127,6 @@ function App() {
           <button type="submit">Dodaj do portfela</button>
         </form>
       </div>
-
-      {/* Usunięto problematyczny ResponsiveContainer i ustawiono sztywne wymiary */}
-      {portfolio.length > 0 && chartData.length > 0 && (
-        <div
-          style={{
-            marginBottom: "30px",
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-          }}
-        >
-          <h3>Alokacja kapitału (PLN)</h3>
-          <PieChart width={350} height={350}>
-            <Pie
-              data={chartData}
-              dataKey="value"
-              nameKey="name"
-              cx="50%"
-              cy="50%"
-              outerRadius={100}
-              label
-            >
-              {chartData.map((entry, index) => (
-                <Cell
-                  key={`cell-${index}`}
-                  fill={COLORS[index % COLORS.length]}
-                />
-              ))}
-            </Pie>
-            <Tooltip formatter={(value) => `${value} PLN`} />
-            <Legend />
-          </PieChart>
-        </div>
-      )}
 
       <table
         border="1"
