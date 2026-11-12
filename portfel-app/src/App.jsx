@@ -9,7 +9,6 @@ import {
   ResponsiveContainer,
 } from "recharts";
 
-// Kolory dla wykresu kołowego
 const COLORS = [
   "#0088FE",
   "#00C49F",
@@ -28,30 +27,37 @@ function App() {
   const [buyPrice, setBuyPrice] = useState("");
   const [currency, setCurrency] = useState("PLN");
 
-  const [usdToPln, setUsdToPln] = useState(4.0); // Wartość domyślna
+  const [usdToPln, setUsdToPln] = useState(4.0);
 
   useEffect(() => {
     fetchPortfolio();
     fetchExchangeRate();
   }, []);
 
-  // Darmowe API do aktualnego kursu walut (bez klucza)
   async function fetchExchangeRate() {
     try {
+      // Darmowe API NBP (brak problemów z CORS)
       const res = await fetch(
-        "https://api.frankfurter.app/latest?from=USD&to=PLN",
+        "https://api.nbp.pl/api/exchangerates/rates/a/usd/?format=json",
       );
+      if (!res.ok) throw new Error("Błąd sieci API NBP");
       const data = await res.json();
-      setUsdToPln(data.rates.PLN);
+
+      const kurs = data.rates[0].mid;
+      setUsdToPln(kurs);
     } catch (error) {
-      console.error("Błąd pobierania kursu:", error);
+      console.error("Błąd pobierania kursu z NBP:", error);
+      setUsdToPln(4.0); // Wartość awaryjna
     }
   }
 
   async function fetchPortfolio() {
     const { data, error } = await supabase.from("portfolio").select("*");
-    if (error) console.error("Błąd pobierania:", error);
-    else setPortfolio(data);
+    if (error) {
+      console.error("Błąd pobierania:", error);
+    } else {
+      setPortfolio(data || []);
+    }
   }
 
   async function addStock(e) {
@@ -75,23 +81,27 @@ function App() {
     }
   }
 
-  // Funkcja usuwająca pozycję po ID
   async function deleteStock(id) {
     const { error } = await supabase.from("portfolio").delete().eq("id", id);
     if (error) alert("Błąd usuwania: " + error.message);
     else fetchPortfolio();
   }
 
-  // Przygotowanie danych do wykresu (przeliczenie wartości na PLN)
-  const chartData = portfolio.map((item) => {
-    const rate = item.currency === "USD" ? usdToPln : 1;
-    const investedPln = item.quantity * item.buy_price * rate;
+  const chartData = (portfolio || [])
+    .map((item) => {
+      const itemCurrency = item.currency || "PLN";
+      const rate = itemCurrency === "USD" ? usdToPln : 1;
 
-    return {
-      name: item.ticker,
-      value: parseFloat(investedPln.toFixed(2)),
-    };
-  });
+      const qty = parseFloat(item.quantity) || 0;
+      const price = parseFloat(item.buy_price) || 0;
+      const investedPln = qty * price * rate;
+
+      return {
+        name: item.ticker || "Nieznany",
+        value: parseFloat(investedPln.toFixed(2)),
+      };
+    })
+    .filter((item) => item.value > 0);
 
   return (
     <div
@@ -100,6 +110,7 @@ function App() {
         fontFamily: "sans-serif",
         maxWidth: "800px",
         margin: "0 auto",
+        color: "white",
       }}
     >
       <h2>Mój Portfel Inwestycyjny</h2>
@@ -107,12 +118,11 @@ function App() {
         Aktualny kurs USD/PLN: <strong>{usdToPln} zł</strong>
       </p>
 
-      {/* Sekcja formularza */}
       <div
         style={{
           marginBottom: "30px",
           padding: "15px",
-          background: "#f5f5f5",
+          background: "#333",
           borderRadius: "8px",
         }}
       >
@@ -154,12 +164,9 @@ function App() {
         </form>
       </div>
 
-      {/* Sekcja Wykresu */}
-      {portfolio.length > 0 && (
+      {portfolio.length > 0 && chartData.length > 0 && (
         <div style={{ height: "350px", marginBottom: "30px" }}>
-          <h3 style={{ textAlign: "center" }}>
-            Alokacja kapitału (wartość zakupu w PLN)
-          </h3>
+          <h3 style={{ textAlign: "center" }}>Alokacja kapitału (PLN)</h3>
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
               <Pie
@@ -185,41 +192,53 @@ function App() {
         </div>
       )}
 
-      {/* Sekcja Tabeli */}
       <table
         border="1"
         cellPadding="10"
-        style={{ borderCollapse: "collapse", width: "100%", textAlign: "left" }}
+        style={{
+          borderCollapse: "collapse",
+          width: "100%",
+          textAlign: "left",
+          borderColor: "#555",
+        }}
       >
-        <thead style={{ background: "#eee" }}>
+        <thead style={{ background: "#444" }}>
           <tr>
             <th>Ticker</th>
             <th>Ilość</th>
             <th>Cena zakupu</th>
-            <th>Wartość (zakup)</th>
+            <th>Wartość (PLN)</th>
             <th>Akcja</th>
           </tr>
         </thead>
         <tbody>
-          {portfolio.map((item) => {
-            const rate = item.currency === "USD" ? usdToPln : 1;
-            const totalValue = (item.quantity * item.buy_price * rate).toFixed(
-              2,
-            );
+          {(portfolio || []).map((item) => {
+            const itemCurrency = item.currency || "PLN";
+            const rate = itemCurrency === "USD" ? usdToPln : 1;
+            const qty = parseFloat(item.quantity) || 0;
+            const price = parseFloat(item.buy_price) || 0;
+            const totalValue = (qty * price * rate).toFixed(2);
+
             return (
               <tr key={item.id}>
                 <td>
                   <strong>{item.ticker}</strong>
                 </td>
-                <td>{item.quantity}</td>
+                <td>{qty}</td>
                 <td>
-                  {item.buy_price} {item.currency}
+                  {price} {itemCurrency}
                 </td>
                 <td>{totalValue} PLN</td>
                 <td>
                   <button
                     onClick={() => deleteStock(item.id)}
-                    style={{ color: "red", cursor: "pointer" }}
+                    style={{
+                      color: "#ff6b6b",
+                      cursor: "pointer",
+                      background: "none",
+                      border: "none",
+                      fontWeight: "bold",
+                    }}
                   >
                     Usuń
                   </button>
