@@ -1,13 +1,6 @@
 import { useState, useEffect } from "react";
 import { supabase } from "./supabaseClient";
-import {
-  PieChart,
-  Pie,
-  Cell,
-  Tooltip,
-  Legend,
-  ResponsiveContainer,
-} from "recharts";
+import { PieChart, Pie, Cell, Tooltip, Legend } from "recharts";
 
 const COLORS = [
   "#0088FE",
@@ -36,7 +29,6 @@ function App() {
 
   async function fetchExchangeRate() {
     try {
-      // Darmowe API NBP (brak problemów z CORS)
       const res = await fetch(
         "https://api.nbp.pl/api/exchangerates/rates/a/usd/?format=json",
       );
@@ -47,7 +39,7 @@ function App() {
       setUsdToPln(kurs);
     } catch (error) {
       console.error("Błąd pobierania kursu z NBP:", error);
-      setUsdToPln(4.0); // Wartość awaryjna
+      setUsdToPln(4.0);
     }
   }
 
@@ -164,31 +156,37 @@ function App() {
         </form>
       </div>
 
+      {/* Usunięto problematyczny ResponsiveContainer i ustawiono sztywne wymiary */}
       {portfolio.length > 0 && chartData.length > 0 && (
-        <div style={{ height: "350px", marginBottom: "30px" }}>
-          <h3 style={{ textAlign: "center" }}>Alokacja kapitału (PLN)</h3>
-          <ResponsiveContainer width="100%" height="100%">
-            <PieChart>
-              <Pie
-                data={chartData}
-                dataKey="value"
-                nameKey="name"
-                cx="50%"
-                cy="50%"
-                outerRadius={100}
-                label
-              >
-                {chartData.map((entry, index) => (
-                  <Cell
-                    key={`cell-${index}`}
-                    fill={COLORS[index % COLORS.length]}
-                  />
-                ))}
-              </Pie>
-              <Tooltip formatter={(value) => `${value} PLN`} />
-              <Legend />
-            </PieChart>
-          </ResponsiveContainer>
+        <div
+          style={{
+            marginBottom: "30px",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+          }}
+        >
+          <h3>Alokacja kapitału (PLN)</h3>
+          <PieChart width={350} height={350}>
+            <Pie
+              data={chartData}
+              dataKey="value"
+              nameKey="name"
+              cx="50%"
+              cy="50%"
+              outerRadius={100}
+              label
+            >
+              {chartData.map((entry, index) => (
+                <Cell
+                  key={`cell-${index}`}
+                  fill={COLORS[index % COLORS.length]}
+                />
+              ))}
+            </Pie>
+            <Tooltip formatter={(value) => `${value} PLN`} />
+            <Legend />
+          </PieChart>
         </div>
       )}
 
